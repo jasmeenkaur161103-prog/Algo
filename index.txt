@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMA Crossover Trading Strategy</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #f4f6f8;
+        margin: 0;
+        padding: 30px;
+    }
+
+    .container {
+        max-width: 1100px;
+        margin: auto;
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+        text-align: center;
+        color: #222;
+    }
+
+    .strategy-box {
+        background: #eef3f8;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    textarea {
+        width: 100%;
+        height: 150px;
+        padding: 10px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        resize: vertical;
+        font-size: 15px;
+    }
+
+    .inputs {
+        display: flex;
+        gap: 15px;
+        margin: 15px 0;
+    }
+
+    .inputs div {
+        flex: 1;
+    }
+
+    input {
+        width: 100%;
+        padding: 10px;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        background: #1d72f3;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #155dcc;
+    }
+
+    .signal {
+        text-align: center;
+        font-size: 25px;
+        font-weight: bold;
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 8px;
+    }
+
+    .buy {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .sell {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .hold {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+
+    th, td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: center;
+    }
+
+    th {
+        background: #222;
+        color: white;
+    }
+
+    .buy-text {
+        color: green;
+        font-weight: bold;
+    }
+
+    .sell-text {
+        color: red;
+        font-weight: bold;
+    }
+
+    .hold-text {
+        color: #b8860b;
+        font-weight: bold;
+    }
+
+    @media(max-width:700px) {
+        .inputs {
+            flex-direction: column;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>📈 SMA Crossover Trading Strategy</h1>
+
+    <div class="strategy-box">
+        <strong>Trading Rules:</strong>
+        <ul>
+            <li>BUY when Short SMA crosses above Long SMA.</li>
+            <li>SELL when Short SMA crosses below Long SMA.</li>
+            <li>HOLD when there is no crossover.</li>
+        </ul>
+    </div>
+
+    <label><strong>Enter Closing Prices</strong></label>
+    <p>Enter prices separated by commas:</p>
+
+    <textarea id="prices">
+100,102,101,104,106,108,107,110,112,115,
+113,116,118,117,120,122,119,121,125,128,
+126,124,122,120,118,116,115,113,110,108
+    </textarea>
+
+    <div class="inputs">
+
+        <div>
+            <label>Short SMA Period</label>
+            <input type="number" id="shortPeriod" value="5" min="1">
+        </div>
+
+        <div>
+            <label>Long SMA Period</label>
+            <input type="number" id="longPeriod" value="20" min="2">
+        </div>
+
+    </div>
+
+    <button onclick="runStrategy()">
+        Run SMA Strategy
+    </button>
+
+    <div id="currentSignal"></div>
+
+    <h2>Trading Results</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Period</th>
+                <th>Price</th>
+                <th>Short SMA</th>
+                <th>Long SMA</th>
+                <th>Signal</th>
+            </tr>
+        </thead>
+
+        <tbody id="results"></tbody>
+    </table>
+
+</div>
+
+
+<script>
+
+function calculateSMA(prices, period, index) {
+
+    if (index < period - 1) {
+        return null;
+    }
+
+    let sum = 0;
+
+    for (let i = index - period + 1; i <= index; i++) {
+        sum += prices[i];
+    }
+
+    return sum / period;
+}
+
+
+function runStrategy() {
+
+    // Get prices
+    let priceInput = document.getElementById("prices").value;
+
+    let prices = priceInput
+        .split(",")
+        .map(Number)
+        .filter(x => !isNaN(x));
+
+    let shortPeriod =
+        parseInt(document.getElementById("shortPeriod").value);
+
+    let longPeriod =
+        parseInt(document.getElementById("longPeriod").value);
+
+
+    if (prices.length < longPeriod) {
+
+        alert(
+            "Please enter at least " +
+            longPeriod +
+            " prices."
+        );
+
+        return;
+    }
+
+
+    if (shortPeriod >= longPeriod) {
+
+        alert(
+            "Short SMA period must be smaller than Long SMA period."
+        );
+
+        return;
+    }
+
+
+    let results = document.getElementById("results");
+
+    results.innerHTML = "";
+
+
+    let previousShort = null;
+    let previousLong = null;
+
+    let latestSignal = "HOLD";
+
+
+    for (let i = 0; i < prices.length; i++) {
+
+        let shortSMA =
+            calculateSMA(prices, shortPeriod, i);
+
+        let longSMA =
+            calculateSMA(prices, longPeriod, i);
+
+        let signal = "HOLD";
+
+
+        // Detect crossover
+        if (
+            shortSMA !== null &&
+            longSMA !== null &&
+            previousShort !== null &&
+            previousLong !== null
+        ) {
+
+            // Bullish crossover
+            if (
+                previousShort <= previousLong &&
+                shortSMA > longSMA
+            ) {
+
+                signal = "BUY";
+                latestSignal = "BUY";
+            }
+
+
+            // Bearish crossover
+            else if (
+                previousShort >= previousLong &&
+                shortSMA < longSMA
+            ) {
+
+                signal = "SELL";
+                latestSignal = "SELL";
+            }
+        }
+
+
+        let row = document.createElement("tr");
+
+
+        row.innerHTML = `
+            <td>${i + 1}</td>
+
+            <td>${prices[i].toFixed(2)}</td>
+
+            <td>
+                ${
+                    shortSMA !== null
+                    ? shortSMA.toFixed(2)
+                    : "-"
+                }
+            </td>
+
+            <td>
+                ${
+                    longSMA !== null
+                    ? longSMA.toFixed(2)
+                    : "-"
+                }
+            </td>
+
+            <td class="${
+                signal === "BUY"
+                ? "buy-text"
+                : signal === "SELL"
+                ? "sell-text"
+                : "hold-text"
+            }">
+                ${signal}
+            </td>
+        `;
+
+
+        results.appendChild(row);
+
+
+        if (shortSMA !== null) {
+            previousShort = shortSMA;
+        }
+
+        if (longSMA !== null) {
+            previousLong = longSMA;
+        }
+    }
+
+
+    // Display latest signal
+
+    let signalBox =
+        document.getElementById("currentSignal");
+
+
+    signalBox.className = "signal";
+
+
+    if (latestSignal === "BUY") {
+
+        signalBox.classList.add("buy");
+
+        signalBox.innerHTML =
+            "🟢 BUY SIGNAL";
+
+    }
+
+    else if (latestSignal === "SELL") {
+
+        signalBox.classList.add("sell");
+
+        signalBox.innerHTML =
+            "🔴 SELL SIGNAL";
+
+    }
+
+    else {
+
+        signalBox.classList.add("hold");
+
+        signalBox.innerHTML =
+            "🟡 HOLD";
+    }
+}
+
+</script>
+
+</body>
+</html>
